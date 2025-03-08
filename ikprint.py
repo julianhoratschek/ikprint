@@ -7,97 +7,31 @@ from zipfile import ZipFile
 import subprocess
 import tempfile
 
-# r1
-    # c1 name
-    # c2 birth
-    # c3 room
-# r2
-    # c1 "Wohnort"
-    # c2 Addr
-# r3
-    # c1 "Krankenkasse"
-    # c2 insurance
-# r4
-    # c1 "Beruf"
-    # c2 occupation
-# r5
-    # c1 "Wahlleistungen"
-    # c2 "Chef"
-    # c3 ??
-    # c4 ??
-    # c5 "Doppel: "
-    # c6 "Regel:"
-    # c7 "301:"
-    # c8 ???
-    # c9 "Kein PS:"
-# r6
-    # c1 "Teammitglieder"
-    # c2 doctor
-    # c3 "Psych:" <psych>
-    # c4 "Physio:"
-# r7
-    # c1 "Aufnahme"
-# r8
-    # c1 "Entlassung geplant"
-    # c2 date
-# r9
-    # c1 "Verlängerung bis"
-    # c2 ???
-# r10
-    # c1 "Cave"
-    # c2 ???
-# r11
-    # c1 "Allergien"
-    # c2 allergies
-# r12
-    # c1 "Kost"
-    # c2 ???
-# r13
-    # c1 "Diagnosen"
-    # c2 "Schmerz"
-    # c3 PAIN_DIAG
-# r14
-    # c1 ???
-    # c2 "Fehlgebrauch"
-    # c3 MISUSE_DIAG
-# r15
-    # c1
-    # c2 "Komorbiditäten"
-    # c3 PSYCH_DIAG
-# r16
-     # c1
-     # c2 "Komorbidität"
-     # c3 PHYS_DIAG
-# r17
-    # c1
-    # c2 "Midas-Score"
-    # c3 ???
-# r18
-    # c1
-    # c2 "Medikation aktuell:"
-    # c3 Current_acute_medis
-    # c4 Current_base_medis
-# r19
-    # c1
-    # c2
-    # c3 Sonstige
-# r20
-    # c1
-    # c2 "Medikation früher:"
-    # c3 acute_previous
-    # c4 base_previous
-# r21 (2911)
 
+# Offset before text in printed text
 offset = "\n" * 34
 
+# Where to find the admission files in .docx format
 db_path = Path(".")
+
+# XML namespaces for docx
 namespaces = { "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main" }
 
+# Pattern to find icd10 codes
 icd10_pattern = re.compile(r"[A-Z]\d+(?:\.\d+)?")
+
+# Which row to start reading diagnoses from
 diagnoses_row_start = 12
+
+# Which row to end reading diagnoses from
 diagnoses_row_end = 17
+
+# How many icd10-codes to fit into one column in the output
 column_height = 4
+
+# How many icd10-codes to fit into one row in the output
 row_length = 7
+
 
 if __name__ == "__main__":
     # Find files matching patient name
@@ -150,7 +84,8 @@ if __name__ == "__main__":
     # Transform and put output text together
     output_text = offset + "\n\n".join(
         [" ".join([f"{icd:<10}" for icd in line])
-         for line in itt.zip_longest(*list(itt.batched(diagnoses, column_height)), fillvalue="")]
+         for line in itt.zip_longest(
+            *list(itt.batched(diagnoses, column_height)), fillvalue="")]
     )
 
     # Create and show file to print
