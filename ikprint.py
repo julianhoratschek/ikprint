@@ -7,7 +7,6 @@ from zipfile import ZipFile
 import subprocess
 import tempfile
 
-
 # r1
     # c1 name
     # c2 birth
@@ -90,7 +89,6 @@ import tempfile
 # r21 (2911)
 
 offset = "\n" * 34
-separator = "\t"
 
 db_path = Path(".")
 namespaces = { "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main" }
@@ -103,7 +101,7 @@ row_length = 7
 
 if __name__ == "__main__":
     # Find files matching patient name
-    patient_name = "sterk" # input("Name: ").lower()
+    patient_name = input("Name: ").lower()
     patient_matches = [path for path in db_path.glob("*.docx") if patient_name in path.stem.lower()]
 
     if not patient_matches:
