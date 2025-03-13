@@ -36,7 +36,8 @@ row_length = 7
 if __name__ == "__main__":
     # Find files matching patient name
     patient_name = input("Name: ").lower()
-    patient_matches = [path for path in db_path.glob("*.docx") if patient_name in path.stem.lower()]
+    patient_matches = [path for path in db_path.glob("*.docx")
+                       if patient_name in path.stem.lower()]
 
     if not patient_matches:
         print(f"!! Could not find any files matching <{patient_name}>")
@@ -45,7 +46,8 @@ if __name__ == "__main__":
     # Select correct file on multiple matches
     if (matches_count := len(patient_matches)) > 1:
         patient_matches.sort(reverse=True)
-        output_list = [f"[{n:>2}]: {patient.name:.>50}" for n, patient in enumerate(patient_matches, start=1)]
+        output_list = [f"[{n:>2}]: {patient.name:.>50}"
+                       for n, patient in enumerate(patient_matches, start=1)]
 
         while True:
             for line in output_list:
@@ -81,18 +83,35 @@ if __name__ == "__main__":
         print(f"!! Too many diagnoses (won't fit on paper). Current max: {diagnoses_max}")
         exit(0)
 
-    # Transform and put output text together
-    output_text = offset + "\n\n".join(
-        [" ".join([f"{icd:<10}" for icd in line])
-         for line in itt.zip_longest(
-            *list(itt.batched(diagnoses, column_height)), fillvalue="")]
-    )
+    while True:
+        # Transform and put output text together
+        output_text = offset + "\n\n".join(
+            [" ".join([f"{icd:<10}" for icd in line])
+             for line in itt.zip_longest(
+                *list(itt.batched(diagnoses, column_height)), fillvalue="")]
+        )
 
-    # Create and show file to print
-    with tempfile.NamedTemporaryFile(delete_on_close=False) as tmp_file:
-        tmp_file.write(output_text.encode("utf-8"))
-        tmp_file.close()
+        # Create and show file to print
+        with tempfile.NamedTemporaryFile(delete_on_close=False) as tmp_file:
+            tmp_file.write(output_text.encode("utf-8"))
+            tmp_file.close()
 
-        subprocess.run(["notepad", tmp_file.name])
-        # subprocess.run(["print", '/d:""', tmp_file.name])
+            subprocess.run(["notepad", tmp_file.name])
+            # subprocess.run(["print", '/d:""', tmp_file.name])
 
+        cmd = input("(+: add, -: remove)")
+
+        if not cmd:
+            break
+
+        changes = {'+': [], '-': []}
+        active_list = changes['+']
+        for c in cmd.split():
+            if c in changes.keys():
+                active_list = changes[c]
+                continue
+            active_list.append(c)
+
+        diagnoses.extend(changes['+'])
+        for rm in changes['-']:
+            diagnoses.remove(rm)
