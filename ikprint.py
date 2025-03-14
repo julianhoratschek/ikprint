@@ -4,6 +4,8 @@ import re
 import itertools as itt
 from zipfile import ZipFile
 
+from typing import Optional
+
 import subprocess
 import tempfile
 
@@ -33,15 +35,50 @@ column_height = 4
 row_length = 7
 
 
-if __name__ == "__main__":
-    # Find files matching patient name
-    patient_name = input("Name: ").lower()
+def refinement_loop(diagnoses: list[str]):
+    while True:
+
+        # Transform and put output text together
+        output_text = offset + "\n\n".join(
+            [" ".join([f"{icd:<10}" for icd in line])
+             for line in itt.zip_longest(
+                *list(itt.batched(diagnoses, column_height)), fillvalue="")]
+        )
+
+        # Create and show file to print
+        with tempfile.NamedTemporaryFile(delete_on_close=False) as tmp_file:
+            tmp_file.write(output_text.encode("utf-8"))
+            tmp_file.close()
+
+            subprocess.run(["notepad", tmp_file.name])
+            # subprocess.run(["print", '/d:""', tmp_file.name])
+
+        cmd = input("[RETURN] quit;\n"
+                    "[+] add; [-] remove space separated list: ")
+
+        if not cmd:
+            break
+
+        changes = {'+': [], '-': []}
+        active_list = changes['+']
+        for c in cmd.split():
+            if c in changes.keys():
+                active_list = changes[c]
+                continue
+            active_list.append(c)
+
+        diagnoses.extend(changes['+'])
+        for rm in changes['-']:
+            diagnoses.remove(rm)
+
+
+def get_patient_path(patient_name: str) -> Optional[Path]:
     patient_matches = [path for path in db_path.glob("*.docx")
                        if patient_name in path.stem.lower()]
 
     if not patient_matches:
         print(f"!! Could not find any files matching <{patient_name}>")
-        exit(0)
+        return None
 
     # Select correct file on multiple matches
     if (matches_count := len(patient_matches)) > 1:
@@ -66,8 +103,12 @@ if __name__ == "__main__":
             patient_matches = [patient_matches[idx - 1]]
             break
 
+    return patient_matches[0]
+
+
+def get_diagnoses(file_path: Path) -> list[str]:
     # Read xml data from docx file
-    with ZipFile(patient_matches[0], "r") as archive:
+    with ZipFile(file_path, "r") as archive:
         with archive.open("word/document.xml", "r") as doc:
             tree = xml.fromstringlist(doc.readlines())
 
@@ -78,40 +119,25 @@ if __name__ == "__main__":
         found = [icd[0] for icd in icd10_pattern.finditer("".join(col.itertext()))]
         diagnoses.extend(found)
 
+    return diagnoses
+
+
+if __name__ == "__main__":
+    # Find files matching patient name
+    patient_name = input("Name: ").lower()
+    file_path = get_patient_path(patient_name)
+
+    if file_path is None:
+        exit(0)
+
+    print(file_path)
+
+    diagnoses = get_diagnoses(file_path)
+
     # Make sure, diagnoses will fit on paper
     if len(diagnoses) > (diagnoses_max := column_height * row_length):
         print(f"!! Too many diagnoses (won't fit on paper). Current max: {diagnoses_max}")
         exit(0)
 
-    while True:
-        # Transform and put output text together
-        output_text = offset + "\n\n".join(
-            [" ".join([f"{icd:<10}" for icd in line])
-             for line in itt.zip_longest(
-                *list(itt.batched(diagnoses, column_height)), fillvalue="")]
-        )
+    refinement_loop(diagnoses)
 
-        # Create and show file to print
-        with tempfile.NamedTemporaryFile(delete_on_close=False) as tmp_file:
-            tmp_file.write(output_text.encode("utf-8"))
-            tmp_file.close()
-
-            subprocess.run(["notepad", tmp_file.name])
-            # subprocess.run(["print", '/d:""', tmp_file.name])
-
-        cmd = input("(+: add, -: remove)")
-
-        if not cmd:
-            break
-
-        changes = {'+': [], '-': []}
-        active_list = changes['+']
-        for c in cmd.split():
-            if c in changes.keys():
-                active_list = changes[c]
-                continue
-            active_list.append(c)
-
-        diagnoses.extend(changes['+'])
-        for rm in changes['-']:
-            diagnoses.remove(rm)
