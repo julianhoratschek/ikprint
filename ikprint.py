@@ -14,7 +14,7 @@ import argparse
 offset = "\n" * 34
 
 # Where to find the admission files in .docx format
-db_path = Path(".")
+db_path = Path(__file__)
 
 # XML namespaces for docx
 namespaces = { "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main" }
@@ -77,7 +77,6 @@ def get_patient_path(patient_name: str) -> Optional[Path]:
                        if patient_name in path.stem.lower()]
 
     if not patient_matches:
-        print(f"!! Could not find any files matching <{patient_name}>")
         return None
 
     # Select correct file on multiple matches
@@ -123,22 +122,34 @@ def get_diagnoses(file_path: Path) -> list[str]:
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("-f", type=Path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", type=Path)
 
-    # Find files matching patient name
-    patient_name = input("Name: ").lower()
-    file_path = get_patient_path(patient_name)
+    args = parser.parse_args()
 
-    if file_path is None:
-        exit(0)
+    if args.f is not None:
+        file_path = db_path.parent / args.f.name
+        if not file_path.exists():
+            with open("D:\\file.txt", "w+") as fl:
+                fl.write(f"{file_path}")
+            print(f"!! Could not find {file_path}")
+            exit(1)
+    else:
+        patient_name = input("Name: ").lower()
+        file_path = get_patient_path(patient_name)
+        if file_path is None:
+            print(f"!! Could not find any files matching <{patient_name}>")
+            exit(2)
+
+    with open("file.txt", "w+") as fl:
+        fl.write("Here")
 
     diagnoses = get_diagnoses(file_path)
 
     # Make sure, diagnoses will fit on paper
     if len(diagnoses) > (diagnoses_max := column_height * row_length):
         print(f"!! Too many diagnoses (won't fit on paper). Current max: {diagnoses_max}")
-        exit(0)
+        exit(3)
 
     refinement_loop(diagnoses)
 
