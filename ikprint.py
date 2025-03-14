@@ -17,7 +17,9 @@ offset = "\n" * 34
 db_path = Path(__file__)
 
 # XML namespaces for docx
-namespaces = { "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main" }
+namespaces = {
+    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+}
 
 # Pattern to find icd10 codes
 icd10_pattern = re.compile(r"[A-Z]\d+(?:\.\d+)?")
@@ -36,8 +38,9 @@ row_length = 7
 
 
 def refinement_loop(diagnoses: list[str]):
-    while True:
+    """Run input loop to add or remove icd-codes separated by whitespace"""
 
+    while True:
         # Transform and put output text together
         output_text = offset + "\n\n".join(
             [" ".join([f"{icd:<10}" for icd in line])
@@ -51,14 +54,15 @@ def refinement_loop(diagnoses: list[str]):
             tmp_file.close()
 
             subprocess.run(["notepad", tmp_file.name])
-            # subprocess.run(["print", '/d:""', tmp_file.name])
 
+        # Get user refinements
         cmd = input("[RETURN] quit;\n"
                     "[+] add; [-] remove space separated list: ")
 
         if not cmd:
             break
 
+        # Change diagnoses according to refinements
         changes = {'+': [], '-': []}
         active_list = changes['+']
         for c in cmd.split():
@@ -73,6 +77,8 @@ def refinement_loop(diagnoses: list[str]):
 
 
 def get_patient_path(patient_name: str) -> Optional[Path]:
+    """Determine correct input file from patient name"""
+
     patient_matches = [path for path in db_path.glob("*.docx")
                        if patient_name in path.stem.lower()]
 
@@ -82,12 +88,13 @@ def get_patient_path(patient_name: str) -> Optional[Path]:
     # Select correct file on multiple matches
     if (matches_count := len(patient_matches)) > 1:
         patient_matches.sort(reverse=True)
-        output_list = [f"[{n:>2}]: {patient.name:.>50}"
-                       for n, patient in enumerate(patient_matches, start=1)]
+        output_list = "\n".join(
+            [f"[{n:>2}]: {patient.name:.>50}"
+             for n, patient in enumerate(patient_matches, start=1)]
+        )
 
         while True:
-            for line in output_list:
-                print(line)
+            print(output_list)
             selection = input(f"Select correct file (1-{matches_count}): ")
 
             if not selection.isdecimal():
@@ -106,6 +113,8 @@ def get_patient_path(patient_name: str) -> Optional[Path]:
 
 
 def get_diagnoses(file_path: Path) -> list[str]:
+    """Read icd-10 codes from input file"""
+
     # Read xml data from docx file
     with ZipFile(file_path, "r") as archive:
         with archive.open("word/document.xml", "r") as doc:
@@ -130,8 +139,6 @@ if __name__ == "__main__":
     if args.f is not None:
         file_path = db_path.parent / args.f.name
         if not file_path.exists():
-            with open("D:\\file.txt", "w+") as fl:
-                fl.write(f"{file_path}")
             print(f"!! Could not find {file_path}")
             exit(1)
     else:
@@ -139,17 +146,13 @@ if __name__ == "__main__":
         file_path = get_patient_path(patient_name)
         if file_path is None:
             print(f"!! Could not find any files matching <{patient_name}>")
-            exit(2)
-
-    with open("file.txt", "w+") as fl:
-        fl.write("Here")
+            exit(1)
 
     diagnoses = get_diagnoses(file_path)
 
     # Make sure, diagnoses will fit on paper
     if len(diagnoses) > (diagnoses_max := column_height * row_length):
         print(f"!! Too many diagnoses (won't fit on paper). Current max: {diagnoses_max}")
-        exit(3)
+        exit(1)
 
     refinement_loop(diagnoses)
-
