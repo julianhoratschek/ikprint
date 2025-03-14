@@ -8,7 +8,7 @@ from typing import Optional
 
 import subprocess
 import tempfile
-
+import argparse
 
 # Offset before text in printed text
 offset = "\n" * 34
@@ -123,14 +123,15 @@ def get_diagnoses(file_path: Path) -> list[str]:
 
 
 if __name__ == "__main__":
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("-f", type=Path)
+
     # Find files matching patient name
     patient_name = input("Name: ").lower()
     file_path = get_patient_path(patient_name)
 
     if file_path is None:
         exit(0)
-
-    print(file_path)
 
     diagnoses = get_diagnoses(file_path)
 
