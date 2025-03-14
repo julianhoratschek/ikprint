@@ -14,7 +14,7 @@ import argparse
 offset = "\n" * 34
 
 # Where to find the admission files in .docx format
-db_path = Path(__file__)
+db_path = Path(__file__).parent
 
 # XML namespaces for docx
 namespaces = {
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.f is not None:
-        file_path = db_path.parent / args.f.name
+        file_path = db_path / args.f.name
         if not file_path.exists():
             print(f"!! Could not find {file_path}")
             exit(1)
