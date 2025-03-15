@@ -25,10 +25,10 @@ namespaces = {
 icd10_pattern = re.compile(r"[A-Z]\d+(?:\.\d+)?")
 
 # Which row to start reading diagnoses from
-diagnoses_row_start = 12
+row_start = 12
 
 # Which row to end reading diagnoses from
-diagnoses_row_end = 17
+row_end = 17
 
 # How many icd10-codes to fit into one column in the output
 column_height = 4
@@ -37,6 +37,7 @@ column_height = 4
 row_length = 7
 
 
+# Using lists instead of sets to retain ordering
 def refinement_loop(diagnoses: list[str]):
     """Run input loop to add or remove icd-codes separated by whitespace"""
 
@@ -71,9 +72,13 @@ def refinement_loop(diagnoses: list[str]):
                 continue
             active_list.append(c)
 
-        diagnoses.extend(changes['+'])
-        for rm in changes['-']:
-            diagnoses.remove(rm)
+        for elem in changes['+']:
+            if elem not in diagnoses:
+                diagnoses.append(elem)
+
+        for elem in changes['-']:
+            if elem in diagnoses:
+                diagnoses.remove(elem)
 
 
 def get_patient_path(patient_name: str) -> Optional[Path]:
@@ -122,9 +127,11 @@ def get_diagnoses(file_path: Path) -> list[str]:
 
     # Extract icd10 codes from file
     diagnoses = []
-    for row in tree[0][0].findall("w:tr", namespaces)[diagnoses_row_start:diagnoses_row_end]:
+    for row in tree[0][0].findall("w:tr", namespaces)[row_start:row_end]:
         col = row.findall("w:tc", namespaces)[2]
-        found = [icd[0] for icd in icd10_pattern.finditer("".join(col.itertext()))]
+        found = [
+            icd[0] for icd in icd10_pattern.finditer("".join(col.itertext()))
+        ]
         diagnoses.extend(found)
 
     return diagnoses
