@@ -39,31 +39,30 @@ row_length = 7
 
 # Using lists instead of sets to retain ordering
 def refinement_loop(diagnoses: list[str]):
-    """Run input loop to add or remove icd-codes separated by whitespace"""
+    """Run input loop to add or remove icd-codes separated by whitespace and
+    display the result as formatted text in notepad
+    :param diagnoses: list of strings representing diagnoses icd10-codes"""
 
     while True:
         # Transform and put output text together
-        output_text = offset + "\n\n".join(
-            [" ".join([f"{icd:<10}" for icd in line])
-             for line in itt.zip_longest(
-                *list(itt.batched(diagnoses, column_height)), fillvalue="")]
-        )
+        output_text = offset + "\n\n".join([
+            " ".join([f"{icd:<10}" for icd in line])
+            for line in itt.zip_longest(
+                *list(itt.batched(diagnoses, column_height)),
+                fillvalue=""
+            )
+        ])
 
-        # Create and show file to print
-        with tempfile.NamedTemporaryFile(delete_on_close=False) as tmp_file:
-            tmp_file.write(output_text.encode("utf-8"))
-            tmp_file.close()
-
-            subprocess.run(["notepad", tmp_file.name])
+        print(output_text)
 
         # Get user refinements
-        cmd = input("[RETURN] quit;\n"
+        cmd = input("\n\n[RETURN] quit;\n"
                     "[+] add; [-] remove space separated list: ")
 
         if not cmd:
             break
 
-        # Change diagnoses according to refinements
+        # Read in changes
         changes = {'+': [], '-': []}
         active_list = changes['+']
         for c in cmd.split():
@@ -72,13 +71,21 @@ def refinement_loop(diagnoses: list[str]):
                 continue
             active_list.append(c)
 
+        # Apply changes to diagnoses
         for elem in changes['+']:
             if elem not in diagnoses:
                 diagnoses.append(elem)
 
         for elem in changes['-']:
-            if elem in diagnoses:
+            while elem in diagnoses:
                 diagnoses.remove(elem)
+
+    # Create and show file to print
+    with tempfile.NamedTemporaryFile(delete_on_close=False) as tmp_file:
+        tmp_file.write(output_text.encode("utf-8"))
+        tmp_file.close()
+
+        subprocess.run(["notepad", tmp_file.name])
 
 
 def get_patient_path(patient_name: str) -> Optional[Path]:
@@ -91,28 +98,30 @@ def get_patient_path(patient_name: str) -> Optional[Path]:
         return None
 
     # Select correct file on multiple matches
-    if (matches_count := len(patient_matches)) > 1:
-        patient_matches.sort(reverse=True)
-        output_list = "\n".join(
-            [f"[{n:>2}]: {patient.name:.>50}"
-             for n, patient in enumerate(patient_matches, start=1)]
-        )
+    if (matches_count := len(patient_matches)) == 1:
+        return patient_matches[0]
 
-        while True:
-            print(output_list)
-            selection = input(f"Select correct file (1-{matches_count}): ")
+    # TODO: Better sorting
+    patient_matches.sort(reverse=True)
+    output_list = "\n".join([
+        f"[{n:>2}]: {patient.name:.>50}"
+        for n, patient in enumerate(patient_matches, start=1)
+    ])
 
-            if not selection.isdecimal():
-                print("!! You must select a number")
-                continue
+    while len(patient_matches) > 1:
+        print(output_list)
+        selection = input(f"Select correct file (1-{matches_count}): ")
 
-            idx = int(selection)
-            if idx < 1 or idx > matches_count:
-                print(f"!! Your selection must be within 1 and {matches_count}")
-                continue
+        if not selection.isdecimal():
+            print("!! You must select a number")
+            continue
 
-            patient_matches = [patient_matches[idx - 1]]
-            break
+        idx = int(selection)
+        if idx < 1 or idx > matches_count:
+            print(f"!! Your selection must be within 1 and {matches_count}")
+            continue
+
+        patient_matches = [patient_matches[idx - 1]]
 
     return patient_matches[0]
 
@@ -127,39 +136,51 @@ def get_diagnoses(file_path: Path) -> list[str]:
 
     # Extract icd10 codes from file
     diagnoses = []
+
+    # Access first table through tree-indices, look for relevant rows
     for row in tree[0][0].findall("w:tr", namespaces)[row_start:row_end]:
+
+        # Select relevant cols (only col idx 2 contains diagnoses)
         col = row.findall("w:tc", namespaces)[2]
-        found = [
-            icd[0] for icd in icd10_pattern.finditer("".join(col.itertext()))
-        ]
-        diagnoses.extend(found)
+
+        # Extract icd10-diagnoses via regex
+        diagnoses.extend([
+            icd[0]
+            for icd in icd10_pattern.finditer("".join(col.itertext()))
+        ])
 
     return diagnoses
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-f", type=Path)
+    parser = argparse.ArgumentParser(
+        prog="ik Print",
+        description="Extract ICD10-codes from docx to print for IK-Form"
+    )
+
+    parser.add_argument("-f", type=Path,
+                        help="complete file name to load from database folder")
 
     args = parser.parse_args()
 
     if args.f is not None:
         file_path = db_path / args.f.name
         if not file_path.exists():
-            print(f"!! Could not find {file_path}")
+            input(f"!! Could not find {file_path}")
             exit(1)
+
     else:
-        patient_name = input("Name: ").lower()
+        patient_name = input("Patient name: ").lower()
         file_path = get_patient_path(patient_name)
         if file_path is None:
-            print(f"!! Could not find any files matching <{patient_name}>")
+            input(f"!! Could not find any files matching <{patient_name}>")
             exit(1)
 
     diagnoses = get_diagnoses(file_path)
 
     # Make sure, diagnoses will fit on paper
     if len(diagnoses) > (diagnoses_max := column_height * row_length):
-        print(f"!! Too many diagnoses (won't fit on paper). Current max: {diagnoses_max}")
+        input(f"!! Too many diagnoses (won't fit on paper). Current max: {diagnoses_max}")
         exit(1)
 
     refinement_loop(diagnoses)
