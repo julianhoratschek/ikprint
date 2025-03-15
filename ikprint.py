@@ -22,7 +22,7 @@ namespaces = {
 }
 
 # Pattern to find icd10 codes
-icd10_pattern = re.compile(r"[A-Z]\d+(?:\.\d+)?")
+icd10_pattern = re.compile(r"[A-Z]\d{2}(?:\.\d+)?")
 
 # Which row to start reading diagnoses from
 row_start = 12
@@ -101,7 +101,7 @@ def get_patient_path(patient_name: str) -> Optional[Path]:
     if (matches_count := len(patient_matches)) == 1:
         return patient_matches[0]
 
-    # TODO: Better sorting
+    # TODO better sorting
     patient_matches.sort(reverse=True)
     output_list = "\n".join([
         f"[{n:>2}]: {patient.name:.>50}"
@@ -184,3 +184,5 @@ if __name__ == "__main__":
         exit(1)
 
     refinement_loop(diagnoses)
+
+
