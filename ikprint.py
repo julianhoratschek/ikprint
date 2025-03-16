@@ -3,6 +3,7 @@ import xml.etree.ElementTree as xml
 import re
 import itertools as itt
 from zipfile import ZipFile
+from datetime import datetime
 
 from typing import Optional
 
@@ -101,14 +102,13 @@ def get_patient_path(patient_name: str) -> Optional[Path]:
     if (matches_count := len(patient_matches)) == 1:
         return patient_matches[0]
 
-    # TODO better sorting
-    patient_matches.sort(reverse=True)
+    patient_matches.sort()
     output_list = "\n".join([
         f"[{n:>2}]: {patient.name:.>50}"
         for n, patient in enumerate(patient_matches, start=1)
     ])
 
-    while len(patient_matches) > 1:
+    while True:
         print(output_list)
         selection = input(f"Select correct file (1-{matches_count}): ")
 
@@ -121,9 +121,7 @@ def get_patient_path(patient_name: str) -> Optional[Path]:
             print(f"!! Your selection must be within 1 and {matches_count}")
             continue
 
-        patient_matches = [patient_matches[idx - 1]]
-
-    return patient_matches[0]
+        return patient_matches[idx - 1]
 
 
 def get_diagnoses(file_path: Path) -> list[str]:
